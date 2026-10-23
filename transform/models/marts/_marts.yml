@@ -142,6 +142,12 @@ models:
         data_type: double
       - name: states_reporting
         data_type: bigint
+        description: Crop Progress states (max 18 for corn) with a rating that week.
+        data_tests:
+          - in_range:
+              arguments:
+                min_value: 0
+                max_value: 18
 
   - name: rpt_quarantine_daily
     description: Count of records rejected by contract checks, per contract, day and reason.

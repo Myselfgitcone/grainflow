@@ -53,13 +53,17 @@ weather_weekly as (
 condition_weekly as (
 
     select
-        cast(date_trunc('week', week_ending) as date) as week_start,
-        avg(pct_good_excellent) as avg_pct_good_excellent,
-        avg(good_excellent_change) as avg_good_excellent_change,
+        cast(date_trunc('week', conditions.week_ending) as date) as week_start,
+        avg(conditions.pct_good_excellent) as avg_pct_good_excellent,
+        avg(conditions.good_excellent_change) as avg_good_excellent_change,
         count(*) as states_reporting
-    from {{ ref('fct_crop_condition_weekly') }}
-    where commodity = 'CORN'
-    group by cast(date_trunc('week', week_ending) as date)
+    from {{ ref('fct_crop_condition_weekly') }} as conditions
+    -- Only the major producing states; minor states would dilute the signal.
+    inner join {{ ref('ref_crop_progress_states') }} as major
+        on conditions.commodity = major.commodity
+        and conditions.state_alpha = major.state_alpha
+    where conditions.commodity = 'CORN'
+    group by cast(date_trunc('week', conditions.week_ending) as date)
 
 )
 
