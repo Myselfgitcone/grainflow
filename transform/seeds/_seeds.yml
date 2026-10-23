@@ -1,0 +1,44 @@
+version: 2
+
+seeds:
+  - name: ref_symbols
+    description: Futures tickers we ingest and the commodity each one prices.
+    columns:
+      - name: symbol
+        data_tests: [unique, not_null]
+
+  # Fixtures mirror the bronze Iceberg tables column for column.
+  - name: price_bars
+    config:
+      column_types:
+        bar_start: timestamptz
+        _kafka_timestamp: timestamptz
+        _ingested_at: timestamptz
+        volume: bigint
+
+  - name: weather_observations
+    config:
+      column_types:
+        observed_at: timestamptz
+        precipitation_last_hour_mm: double
+        _kafka_timestamp: timestamptz
+        _ingested_at: timestamptz
+
+  - name: crop_condition
+    config:
+      column_types:
+        week_ending: date
+        pct: double
+        nass_load_time: timestamptz
+        _kafka_partition: integer
+        _kafka_offset: bigint
+        _kafka_timestamp: timestamptz
+        _ingested_at: timestamptz
+
+  - name: quarantine
+    config:
+      column_types:
+        topic: varchar
+        kafka_partition: integer
+        kafka_offset: bigint
+        _ingested_at: timestamptz

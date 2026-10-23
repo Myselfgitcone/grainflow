@@ -1,0 +1,56 @@
+name: weather_observation
+version: 1
+owner: weather
+description: Hourly surface observation from a NOAA ASOS station in the US corn belt.
+
+transport:
+  kind: kafka
+  topic: weather.observations.v1
+  key: station_id
+
+storage:
+  table: bronze.weather_observations
+  partition: { field: observed_at, transform: day }
+
+freshness_minutes: 120
+
+fields:
+  - name: station_id
+    type: string
+    required: true
+    description: ICAO station identifier, e.g. KDSM.
+
+  - name: state_alpha
+    type: string
+    required: true
+    description: Two-letter state code, matches USDA NASS state_alpha.
+
+  - name: observed_at
+    type: timestamp
+    required: true
+
+  - name: temperature_c
+    type: double
+    minimum: -60
+    maximum: 60
+
+  - name: dewpoint_c
+    type: double
+    minimum: -80
+    maximum: 40
+
+  - name: relative_humidity_pct
+    type: double
+    minimum: 0
+    maximum: 100
+
+  - name: wind_speed_kmh
+    type: double
+    minimum: 0
+
+  - name: precipitation_last_hour_mm
+    type: double
+    minimum: 0
+
+  - name: description
+    type: string

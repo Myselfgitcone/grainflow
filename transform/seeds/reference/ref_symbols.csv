@@ -1,0 +1,5 @@
+symbol,commodity,exchange,contract_name,price_unit
+ZC=F,CORN,CBOT,Corn futures,cents per bushel
+ZS=F,SOYBEANS,CBOT,Soybean futures,cents per bushel
+ZW=F,WHEAT,CBOT,Chicago SRW wheat futures,cents per bushel
+KE=F,WHEAT,CBOT,KC HRW wheat futures,cents per bushel

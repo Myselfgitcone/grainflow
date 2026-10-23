@@ -1,0 +1,163 @@
+name: grainflow
+
+# Shared settings for every container that runs the grainflow package.
+x-app: &app
+  build: .
+  image: grainflow-app
+  env_file:
+    - path: .env
+      required: false
+  environment: &app-env
+    GRAINFLOW_KAFKA_BOOTSTRAP: redpanda:9092
+    GRAINFLOW_SCHEMA_REGISTRY_URL: http://redpanda:8081
+    GRAINFLOW_CATALOG_URI: postgresql+psycopg2://grainflow:grainflow@postgres:5432/iceberg
+    GRAINFLOW_S3_ENDPOINT: http://minio:9000
+    GRAINFLOW_TRINO_HOST: trino
+    GRAINFLOW_TRINO_PORT: "8080"
+    DBT_TARGET: trino
+    DAGSTER_HOME: /app/infra/dagster
+
+services:
+  # --- storage --------------------------------------------------------------
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grainflow
+      POSTGRES_PASSWORD: grainflow
+      POSTGRES_DB: iceberg
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "grainflow", "-d", "iceberg"]
+      interval: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: grainflow
+      MINIO_ROOT_PASSWORD: grainflow-secret
+    volumes:
+      - miniodata:/data
+    ports: ["9000:9000", "9001:9001"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: >
+      sh -c "mc alias set local http://minio:9000 grainflow grainflow-secret
+      && mc mb --ignore-existing local/warehouse"
+
+  # --- streaming --------------------------------------------------------------
+
+  redpanda:
+    image: redpandadata/redpanda:v24.3.1
+    command:
+      - redpanda start
+      - --mode dev-container
+      - --smp 1
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+    ports: ["19092:19092", "18081:18081"]
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true'"]
+      interval: 5s
+      retries: 20
+
+  console:
+    image: redpandadata/console:v2.8.0
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+    ports: ["8088:8080"]
+    depends_on:
+      redpanda: { condition: service_healthy }
+
+  # --- lake setup, ingestion and processing -------------------------------------
+
+  init:
+    <<: *app
+    command: sh -c "grainflow lake init && grainflow contracts register"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+
+  spark:
+    build:
+      context: .
+      dockerfile: spark/Dockerfile
+    environment:
+      AWS_ACCESS_KEY_ID: grainflow
+      AWS_SECRET_ACCESS_KEY: grainflow-secret
+      AWS_REGION: us-east-1
+      KAFKA_BOOTSTRAP: redpanda:9092
+      CHECKPOINT_ROOT: /checkpoints
+    volumes:
+      - ivy:/opt/spark/ivy
+      - checkpoints:/checkpoints
+    ports: ["4040:4040"]
+    restart: unless-stopped
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  prices:
+    <<: *app
+    command: grainflow produce prices --mode live
+    restart: unless-stopped
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  weather:
+    <<: *app
+    command: grainflow produce weather
+    restart: unless-stopped
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  # --- query and orchestration ------------------------------------------------
+
+  trino:
+    image: trinodb/trino:470
+    volumes:
+      - ./infra/trino/catalog:/etc/trino/catalog:ro
+    ports: ["8080:8080"]
+    depends_on:
+      init: { condition: service_completed_successfully }
+
+  dagster-webserver:
+    <<: *app
+    command: dagster-webserver -h 0.0.0.0 -p 3000 -w infra/dagster/workspace.yaml
+    ports: ["3000:3000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  dagster-daemon:
+    <<: *app
+    command: dagster-daemon run -w infra/dagster/workspace.yaml
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  # One-off commands: docker compose run --rm cli grainflow <command>
+  cli:
+    <<: *app
+    profiles: ["cli"]
+    command: grainflow --help
+
+volumes:
+  pgdata:
+  miniodata:
+  ivy:
+  checkpoints:

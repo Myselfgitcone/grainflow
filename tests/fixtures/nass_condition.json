@@ -1,0 +1,49 @@
+{
+  "data": [
+    {
+      "commodity_desc": "CORN",
+      "statisticcat_desc": "CONDITION",
+      "unit_desc": "PCT GOOD",
+      "state_alpha": "IA",
+      "week_ending": "2026-07-12",
+      "Value": "54",
+      "load_time": "2026-07-13 16:00:42"
+    },
+    {
+      "commodity_desc": "CORN",
+      "statisticcat_desc": "CONDITION",
+      "unit_desc": "PCT EXCELLENT",
+      "state_alpha": "IA",
+      "week_ending": "2026-07-12",
+      "Value": "21",
+      "load_time": "2026-07-13 16:00:42"
+    },
+    {
+      "commodity_desc": "CORN",
+      "statisticcat_desc": "CONDITION",
+      "unit_desc": "PCT POOR",
+      "state_alpha": "IL",
+      "week_ending": "2026-07-12",
+      "Value": "(D)",
+      "load_time": "2026-07-13 16:00:42"
+    },
+    {
+      "commodity_desc": "CORN",
+      "statisticcat_desc": "CONDITION",
+      "unit_desc": "PCT FAIR",
+      "state_alpha": "IL",
+      "week_ending": "2026-07-12",
+      "Value": "1,250",
+      "load_time": "2026-07-13 16:00:42"
+    },
+    {
+      "commodity_desc": "CORN",
+      "statisticcat_desc": "CONDITION",
+      "unit_desc": "PCT GOOD",
+      "state_alpha": "IN",
+      "week_ending": "",
+      "Value": "40",
+      "load_time": "2026-07-13 16:00:42"
+    }
+  ]
+}

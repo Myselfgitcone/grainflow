@@ -1,0 +1,45 @@
+name: crop_condition
+version: 1
+owner: agronomy
+description: >
+  Weekly USDA NASS crop condition rating by state. One row per
+  commodity, state, week and condition class (very poor .. excellent).
+
+transport:
+  kind: batch
+  schedule: Mondays after the 4pm ET NASS release
+
+storage:
+  table: bronze.crop_condition
+  partition: { field: commodity, transform: identity }
+
+freshness_minutes: 11520  # 8 days, the report is weekly
+
+fields:
+  - name: commodity
+    type: string
+    required: true
+    allowed: ["CORN", "SOYBEANS", "WHEAT"]
+
+  - name: state_alpha
+    type: string
+    required: true
+
+  - name: week_ending
+    type: date
+    required: true
+
+  - name: condition_class
+    type: string
+    required: true
+    allowed: ["VERY POOR", "POOR", "FAIR", "GOOD", "EXCELLENT"]
+
+  - name: pct
+    type: double
+    required: true
+    minimum: 0
+    maximum: 100
+
+  - name: nass_load_time
+    type: timestamp
+    description: When NASS last loaded the row, useful for revisions.

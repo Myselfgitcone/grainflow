@@ -1,0 +1,159 @@
+# Generated from contracts/*.yaml by `grainflow contracts dbt-sources`.
+# Do not edit by hand: change the contract and regenerate.
+version: 2
+sources:
+- name: bronze
+  database: '{{ target.database }}'
+  schema: bronze
+  tables:
+  - name: crop_condition
+    description: Weekly USDA NASS crop condition rating by state. One row per commodity, state, week and
+      condition class (very poor .. excellent).
+    config:
+      loaded_at_field: _ingested_at
+      freshness:
+        warn_after:
+          count: 11520
+          period: minute
+        error_after:
+          count: 23040
+          period: minute
+      meta:
+        contract: crop_condition
+        version: 1
+        owner: agronomy
+    columns:
+    - name: commodity
+      data_tests:
+      - not_null
+      - accepted_values:
+          arguments:
+            values:
+            - CORN
+            - SOYBEANS
+            - WHEAT
+    - name: state_alpha
+      data_tests:
+      - not_null
+    - name: week_ending
+      data_tests:
+      - not_null
+    - name: condition_class
+      data_tests:
+      - not_null
+      - accepted_values:
+          arguments:
+            values:
+            - VERY POOR
+            - POOR
+            - FAIR
+            - GOOD
+            - EXCELLENT
+    - name: pct
+      data_tests:
+      - not_null
+    - name: nass_load_time
+      description: When NASS last loaded the row, useful for revisions.
+  - name: price_bars
+    description: One OHLCV bar for a CBOT grain futures front-month contract.
+    config:
+      loaded_at_field: _ingested_at
+      freshness:
+        warn_after:
+          count: 30
+          period: minute
+        error_after:
+          count: 60
+          period: minute
+      meta:
+        contract: price_bar
+        version: 1
+        owner: market-data
+    columns:
+    - name: symbol
+      description: Yahoo Finance continuous-contract ticker.
+      data_tests:
+      - not_null
+      - accepted_values:
+          arguments:
+            values:
+            - ZC=F
+            - ZS=F
+            - ZW=F
+            - KE=F
+    - name: bar_interval
+      data_tests:
+      - not_null
+      - accepted_values:
+          arguments:
+            values:
+            - 1m
+            - 1d
+    - name: bar_start
+      description: Bar open time, UTC.
+      data_tests:
+      - not_null
+    - name: open
+      data_tests:
+      - not_null
+    - name: high
+      data_tests:
+      - not_null
+    - name: low
+      data_tests:
+      - not_null
+    - name: close
+      data_tests:
+      - not_null
+    - name: volume
+      data_tests:
+      - not_null
+    - name: source
+      description: Where the bar came from, e.g. yahoo or replay.
+      data_tests:
+      - not_null
+  - name: weather_observations
+    description: Hourly surface observation from a NOAA ASOS station in the US corn belt.
+    config:
+      loaded_at_field: _ingested_at
+      freshness:
+        warn_after:
+          count: 120
+          period: minute
+        error_after:
+          count: 240
+          period: minute
+      meta:
+        contract: weather_observation
+        version: 1
+        owner: weather
+    columns:
+    - name: station_id
+      description: ICAO station identifier, e.g. KDSM.
+      data_tests:
+      - not_null
+    - name: state_alpha
+      description: Two-letter state code, matches USDA NASS state_alpha.
+      data_tests:
+      - not_null
+    - name: observed_at
+      data_tests:
+      - not_null
+    - name: temperature_c
+    - name: dewpoint_c
+    - name: relative_humidity_pct
+    - name: wind_speed_kmh
+    - name: precipitation_last_hour_mm
+    - name: description
+  - name: quarantine
+    description: Records that failed their contract at ingestion, with the raw payload.
+    config:
+      loaded_at_field: _ingested_at
+    columns:
+    - name: contract
+      data_tests:
+      - not_null
+    - name: reason
+      data_tests:
+      - not_null
+    - name: raw_value

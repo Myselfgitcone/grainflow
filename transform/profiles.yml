@@ -1,0 +1,23 @@
+grainflow:
+  target: "{{ env_var('DBT_TARGET', 'trino') }}"
+  outputs:
+    # The real lake: Iceberg tables behind Trino.
+    trino:
+      type: trino
+      method: none
+      http_scheme: http
+      user: "{{ env_var('GRAINFLOW_TRINO_USER', 'grainflow') }}"
+      host: "{{ env_var('GRAINFLOW_TRINO_HOST', 'localhost') }}"
+      port: "{{ env_var('GRAINFLOW_TRINO_PORT', '8080') | int }}"
+      database: lake
+      schema: silver
+      threads: 4
+
+    # CI and laptop checks: same models on DuckDB over synthetic fixtures.
+    ci:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'target/grainflow_ci.duckdb') }}"
+      schema: silver
+      threads: 4
+      settings:
+        TimeZone: UTC

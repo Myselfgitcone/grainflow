@@ -1,0 +1,36 @@
+name: grainflow
+version: "0.1.0"
+config-version: 2
+profile: grainflow
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  grainflow:
+    +materialized: table
+    staging:
+      +schema: silver
+      +meta: {dagster: {group: silver}}
+    intermediate:
+      +schema: silver
+      +meta: {dagster: {group: silver}}
+    marts:
+      +schema: gold
+      +meta: {dagster: {group: gold}}
+
+seeds:
+  grainflow:
+    reference:
+      +schema: silver
+      +meta: {dagster: {group: reference}}
+    # Synthetic bronze tables for the DuckDB CI target only (see scripts/make_fixtures.py).
+    fixtures:
+      +schema: bronze
+      +enabled: "{{ target.type == 'duckdb' }}"
+
+flags:
+  send_anonymous_usage_stats: false

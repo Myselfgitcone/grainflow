@@ -1,0 +1,153 @@
+version: 2
+
+# Gold tables are what the data agent (project 2) and dashboards read, so their
+# shape is pinned with enforced model contracts: a column type change fails the
+# build instead of reaching a consumer.
+
+models:
+  - name: fct_price_daily
+    description: Daily OHLCV per futures contract with returns and 20-day realized volatility.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [symbol, trade_date]
+    columns:
+      - name: symbol
+        data_type: varchar
+        data_tests: [not_null]
+      - name: commodity
+        data_type: varchar
+      - name: trade_date
+        data_type: date
+        data_tests: [not_null]
+      - name: open_price
+        data_type: double
+      - name: high_price
+        data_type: double
+      - name: low_price
+        data_type: double
+      - name: close_price
+        data_type: double
+        data_tests:
+          - in_range:
+              arguments:
+                min_value: 0
+      - name: volume
+        data_type: bigint
+      - name: daily_return
+        data_type: double
+        description: Simple return vs the previous trading day.
+      - name: realized_vol_20d
+        data_type: double
+        description: Annualised stddev of 20 daily log returns. Null until 20 returns exist.
+
+  - name: fct_weather_state_daily
+    description: Daily weather per corn belt state, averaged over stations with a complete day.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [state_alpha, obs_date]
+    columns:
+      - name: state_alpha
+        data_type: varchar
+      - name: obs_date
+        data_type: date
+      - name: tmin_f
+        data_type: double
+      - name: tmax_f
+        data_type: double
+      - name: gdd_f
+        data_type: double
+        description: Corn growing degree days (86/50 method).
+        data_tests:
+          - in_range:
+              arguments:
+                min_value: 0
+                max_value: 36
+      - name: precip_mm
+        data_type: double
+      - name: station_count
+        data_type: bigint
+
+  - name: fct_crop_condition_weekly
+    description: USDA crop condition per state and week, one column per rating class.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [commodity, state_alpha, week_ending]
+    columns:
+      - name: commodity
+        data_type: varchar
+      - name: state_alpha
+        data_type: varchar
+      - name: week_ending
+        data_type: date
+      - name: pct_very_poor
+        data_type: double
+      - name: pct_poor
+        data_type: double
+      - name: pct_fair
+        data_type: double
+      - name: pct_good
+        data_type: double
+      - name: pct_excellent
+        data_type: double
+      - name: pct_good_excellent
+        data_type: double
+        data_tests:
+          - in_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: condition_index
+        data_type: double
+        description: Acre-weighted rating from 1 (very poor) to 5 (excellent).
+        data_tests:
+          - in_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+      - name: good_excellent_change
+        data_type: double
+        description: Points of good/excellent gained or lost since the previous report.
+
+  - name: mart_corn_belt_weekly
+    description: Weekly corn price, heat units and crop condition, for signal analysis.
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: week_start
+        data_type: date
+        data_tests: [unique, not_null]
+      - name: corn_close
+        data_type: double
+      - name: corn_return
+        data_type: double
+      - name: next_week_corn_return
+        data_type: double
+        description: The following week's return, so a row can be read as signal -> outcome.
+      - name: gdd_f
+        data_type: double
+      - name: precip_mm
+        data_type: double
+      - name: pct_good_excellent
+        data_type: double
+      - name: good_excellent_change
+        data_type: double
+      - name: states_reporting
+        data_type: bigint
+
+  - name: rpt_quarantine_daily
+    description: Count of records rejected by contract checks, per contract, day and reason.
+    columns:
+      - name: rejected_records
+        data_tests:
+          - in_range:
+              arguments:
+                min_value: 1

@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: stg_price_bars
+    description: One row per futures bar, deduplicated from at-least-once bronze.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [symbol, bar_interval, bar_start]
+    columns:
+      - name: symbol
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('ref_symbols')
+                field: symbol
+      - name: high_price
+        description: Must be at least the open, close and low of the bar.
+      - name: volume
+        data_tests:
+          - in_range:
+              arguments:
+                min_value: 0
+
+  - name: stg_weather_observations
+    description: One row per station observation, deduplicated.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [station_id, observed_at]
+
+  - name: stg_crop_condition
+    description: Crop condition ratings with snake_case classes, latest NASS revision only.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [commodity, state_alpha, week_ending, condition_class]
+    columns:
+      - name: condition_class
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [very_poor, poor, fair, good, excellent]

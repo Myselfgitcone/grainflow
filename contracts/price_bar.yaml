@@ -1,0 +1,62 @@
+name: price_bar
+version: 1
+owner: market-data
+description: One OHLCV bar for a CBOT grain futures front-month contract.
+
+transport:
+  kind: kafka
+  topic: market.price_bars.v1
+  key: symbol
+
+storage:
+  table: bronze.price_bars
+  partition: { field: bar_start, transform: day }
+
+freshness_minutes: 30
+
+fields:
+  - name: symbol
+    type: string
+    required: true
+    description: Yahoo Finance continuous-contract ticker.
+    allowed: ["ZC=F", "ZS=F", "ZW=F", "KE=F"]
+
+  - name: bar_interval
+    type: string
+    required: true
+    allowed: ["1m", "1d"]
+
+  - name: bar_start
+    type: timestamp
+    required: true
+    description: Bar open time, UTC.
+
+  - name: open
+    type: double
+    required: true
+    minimum: 0
+
+  - name: high
+    type: double
+    required: true
+    minimum: 0
+
+  - name: low
+    type: double
+    required: true
+    minimum: 0
+
+  - name: close
+    type: double
+    required: true
+    minimum: 0
+
+  - name: volume
+    type: long
+    required: true
+    minimum: 0
+
+  - name: source
+    type: string
+    required: true
+    description: Where the bar came from, e.g. yahoo or replay.
