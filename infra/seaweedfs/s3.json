@@ -1,0 +1,11 @@
+{
+  "identities": [
+    {
+      "name": "grainflow",
+      "credentials": [
+        { "accessKey": "grainflow", "secretKey": "grainflow-secret" }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

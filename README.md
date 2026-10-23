@@ -24,7 +24,7 @@ flowchart LR
         B[batch loader<br/>pyiceberg]
     end
 
-    subgraph lake[Iceberg on MinIO, JDBC catalog in Postgres]
+    subgraph lake[Iceberg on S3 / SeaweedFS, JDBC catalog in Postgres]
         BR[bronze]
         Q[bronze.quarantine]
         SI[silver]
@@ -57,7 +57,7 @@ flowchart LR
 | Contracts | YAML + JSON Schema | One file per dataset: fields, types, ranges, allowed values, topic, table, partitioning, freshness SLA |
 | Ingestion | Python, confluent-kafka | Live 1m futures polling (or sped-up replay), NWS polling, NASS batch loads |
 | Streaming | Spark Structured Streaming | Kafka → Iceberg bronze, re-validates every row, routes failures to quarantine |
-| Storage | Iceberg v2, MinIO, Postgres | Day-partitioned bronze tables; one catalog shared by Spark, Trino and pyiceberg |
+| Storage | Iceberg v2, SeaweedFS (S3 API), Postgres | Day-partitioned bronze tables; one catalog shared by Spark, Trino and pyiceberg |
 | Transform | dbt on Trino | Incremental dedupe in silver; gold facts with enforced model contracts |
 | Orchestration | Dagster | Asset lineage from Kafka to gold, contract-driven freshness checks, nightly compaction |
 | CI | GitHub Actions | Lint, 41 unit tests incl. PySpark, 57 dbt nodes on DuckDB, contract compatibility gate |
@@ -80,7 +80,7 @@ make query                  # weekly corn belt mart via Trino
 | Redpanda Console (topics, DLQ, schemas) | http://localhost:8088 |
 | Trino | http://localhost:8080 |
 | Spark UI (streaming queries) | http://localhost:4040 |
-| MinIO (Iceberg files) | http://localhost:9001 (`grainflow` / `grainflow-secret`) |
+| SeaweedFS filer (Iceberg files under /buckets/warehouse) | http://localhost:8888 |
 
 If CBOT is closed (weekends, or the daily break), stream the last few days at 60x speed instead:
 
@@ -162,7 +162,7 @@ docs/adr/             decision records
 
 | Local | AWS equivalent |
 | --- | --- |
-| MinIO | S3 |
+| SeaweedFS | S3 |
 | Iceberg JDBC catalog (Postgres) | Glue Data Catalog or Apache Polaris; Lake Formation for access |
 | Redpanda | MSK, or Confluent Cloud with Schema Registry |
 | Spark `local[2]` container | EMR Serverless or Databricks job cluster |

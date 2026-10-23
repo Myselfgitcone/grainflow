@@ -11,7 +11,7 @@ x-app: &app
     GRAINFLOW_KAFKA_BOOTSTRAP: redpanda:9092
     GRAINFLOW_SCHEMA_REGISTRY_URL: http://redpanda:8081
     GRAINFLOW_CATALOG_URI: postgresql+psycopg2://grainflow:grainflow@postgres:5432/iceberg
-    GRAINFLOW_S3_ENDPOINT: http://minio:9000
+    GRAINFLOW_S3_ENDPOINT: http://s3:8333
     GRAINFLOW_TRINO_HOST: trino
     GRAINFLOW_TRINO_PORT: "8080"
     DBT_TARGET: trino
@@ -35,27 +35,36 @@ services:
       interval: 5s
       retries: 20
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: grainflow
-      MINIO_ROOT_PASSWORD: grainflow-secret
+  # S3-compatible object storage for Iceberg data files. MinIO stopped
+  # publishing images in 2025; SeaweedFS is a maintained drop-in for this.
+  s3:
+    image: chrislusf/seaweedfs:latest
+    command: >
+      server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+      -master.volumeSizeLimitMB=1024 -volume.max=0
     volumes:
-      - miniodata:/data
-    ports: ["9000:9000", "9001:9001"]
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      retries: 20
+      - s3data:/data
+      - ./infra/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    ports: ["9000:8333", "8888:8888"]
 
-  minio-init:
-    image: minio/mc:latest
-    depends_on:
-      minio: { condition: service_healthy }
-    entrypoint: >
-      sh -c "mc alias set local http://minio:9000 grainflow grainflow-secret
-      && mc mb --ignore-existing local/warehouse"
+  # Creates the "warehouse" bucket, retrying until the S3 gateway is up.
+  s3-init:
+    image: amazon/aws-cli:latest
+    depends_on: [s3]
+    environment:
+      AWS_ACCESS_KEY_ID: grainflow
+      AWS_SECRET_ACCESS_KEY: grainflow-secret
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        aws configure set default.s3.addressing_style path
+        for attempt in $$(seq 1 60); do
+          aws --endpoint-url http://s3:8333 s3api head-bucket --bucket warehouse 2>/dev/null && exit 0
+          aws --endpoint-url http://s3:8333 s3 mb s3://warehouse 2>/dev/null && exit 0
+          echo "waiting for s3 ($$attempt)"; sleep 2
+        done
+        exit 1
 
   # --- streaming --------------------------------------------------------------
 
@@ -92,7 +101,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redpanda: { condition: service_healthy }
-      minio-init: { condition: service_completed_successfully }
+      s3-init: { condition: service_completed_successfully }
 
   spark:
     build:
@@ -158,6 +167,6 @@ services:
 
 volumes:
   pgdata:
-  miniodata:
+  s3data:
   ivy:
   checkpoints:
