@@ -18,3 +18,5 @@ metastore_db/
 derby.log
 *.duckdb
 *.duckdb.wal
+*.duckdb
+*.duckdb.wal
