@@ -116,6 +116,17 @@ def split(decoded: DataFrame, contract: Contract) -> tuple[DataFrame, DataFrame]
     return good, bad
 
 
+# Without a sort, Iceberg falls back to a fanout writer: one open Parquet file
+# per partition per task. A backfill spanning years of daily partitions then
+# holds thousands of writers in memory and the driver runs out of heap. Sorting
+# by the partition column inside each task lets Iceberg write one file at a time.
+CLUSTERED_WRITE = {"distribution-mode": "none", "fanout-enabled": "false"}
+
+
+def clustered_by_partition(rows: DataFrame, contract: Contract) -> DataFrame:
+    return rows.sortWithinPartitions(contract.partition_field)
+
+
 def batch_writer(contract: Contract):
     table = f"{CATALOG}.{contract.table}"
 
@@ -124,7 +135,9 @@ def batch_writer(contract: Contract):
         try:
             good, bad = split(decoded, contract)
             if not good.isEmpty():
-                good.writeTo(table).append()
+                clustered_by_partition(good, contract).writeTo(table).options(
+                    **CLUSTERED_WRITE
+                ).append()
             if not bad.isEmpty():
                 bad.writeTo(QUARANTINE_TABLE).append()
         finally:
