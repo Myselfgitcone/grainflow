@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from grainflow.publisher import Publisher
+from grainflow.publisher import Publisher, ensure_topics
 
 
 class FakeProducer:
@@ -57,3 +57,37 @@ def test_publish_all_counts_outcomes(contracts, producer, price_bar):
 def test_batch_contracts_cannot_be_published(contracts, producer):
     with pytest.raises(ValueError, match="not a Kafka dataset"):
         Publisher(contracts["crop_condition"], producer)
+
+
+class FakeAdmin:
+    def __init__(self, existing):
+        self.existing = existing
+        self.created = None
+
+    def list_topics(self, timeout):
+        return type("Metadata", (), {"topics": dict.fromkeys(self.existing)})()
+
+    def create_topics(self, topics):
+        self.created = [t.topic for t in topics]
+        return {}
+
+
+def test_ensure_topics_creates_only_missing_topics(contracts):
+    admin = FakeAdmin(existing={"market.price_bars.v1"})
+
+    ensure_topics("unused:9092", contracts.values(), admin=admin)
+
+    assert admin.created == [
+        "market.price_bars.v1.dlq",
+        "weather.observations.v1",
+        "weather.observations.v1.dlq",
+    ]
+
+
+def test_ensure_topics_is_a_no_op_when_everything_exists(contracts):
+    topics = {t for c in contracts.values() if c.is_streaming for t in (c.topic, c.dlq_topic)}
+    admin = FakeAdmin(existing=topics)
+
+    ensure_topics("unused:9092", contracts.values(), admin=admin)
+
+    assert admin.created is None

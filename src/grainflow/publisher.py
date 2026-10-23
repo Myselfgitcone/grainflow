@@ -44,11 +44,13 @@ def kafka_producer(bootstrap: str) -> Producer:
     )
 
 
-def ensure_topics(bootstrap: str, contracts: Iterable[Contract], partitions: int = 3) -> None:
-    """Create each contract's topic and its DLQ if they don't exist yet."""
+def ensure_topics(
+    bootstrap: str, contracts: Iterable[Contract], partitions: int = 3, admin: Any = None
+) -> None:
+    """Create each contract's topic and its DLQ if they don't exist yet. Safe to rerun."""
     from confluent_kafka.admin import AdminClient, NewTopic
 
-    admin = AdminClient({"bootstrap.servers": bootstrap})
+    admin = admin or AdminClient({"bootstrap.servers": bootstrap})
     existing = set(admin.list_topics(timeout=10).topics)
     wanted = []
     for contract in contracts:
@@ -57,6 +59,10 @@ def ensure_topics(bootstrap: str, contracts: Iterable[Contract], partitions: int
         for topic in (contract.topic, contract.dlq_topic):
             if topic not in existing:
                 wanted.append(NewTopic(topic, num_partitions=partitions, replication_factor=1))
+
+    if not wanted:
+        log.info("all topics already exist")
+        return
 
     for topic, future in admin.create_topics(wanted).items():
         future.result()
