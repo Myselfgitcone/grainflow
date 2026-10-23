@@ -47,6 +47,7 @@ def test_bronze_feeds_silver_feeds_gold(defs):
         "gold/fct_price_daily",
         "gold/fct_weather_state_daily",
         "gold/fct_crop_condition_weekly",
+        "silver/ref_crop_progress_states",
     }
 
 
