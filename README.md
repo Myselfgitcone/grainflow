@@ -62,6 +62,30 @@ flowchart LR
 | Orchestration | Dagster | Asset lineage from Kafka to gold, contract-driven freshness checks, nightly compaction |
 | CI | GitHub Actions | Lint, 44 unit tests incl. PySpark, 60 dbt nodes on DuckDB, contract compatibility gate |
 
+## See it running
+
+Captured from the stack running on a laptop, October 2026.
+
+**Dagster: lineage from Kafka-fed bronze tables to the gold mart.** Dashed boxes are
+tables Spark writes, which Dagster tracks but doesn't run.
+
+![Dagster asset lineage](docs/images/dagster-lineage.png)
+
+**Redpanda: one topic per contract, plus a dead-letter topic for records that fail it.**
+
+![Kafka topics in Redpanda Console](docs/images/redpanda-topics.png)
+
+**Live CBOT wheat futures (`ZW=F`) as contract-shaped JSON, keyed by symbol.** All six
+share one timestamp because a producer restart resent recent bars. Silver drops
+the duplicates, as ADR 0003 describes.
+
+![Price bar messages](docs/images/kafka-messages.png)
+
+**Spark Structured Streaming catching up after the 10-year backfill.** About 9,000 rows
+in one batch, then batch time falls from ~38 s back to ~2 s once caught up.
+
+![Spark streaming query metrics](docs/images/spark-streaming.png)
+
 ## Quickstart
 
 You need Docker with ~6 GB of memory, plus [uv](https://docs.astral.sh/uv/) for local development.
