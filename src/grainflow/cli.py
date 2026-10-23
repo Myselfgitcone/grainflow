@@ -33,6 +33,9 @@ def main(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)-7s %(name)s  %(message)s",
     )
+    # httpx logs every request URL at INFO, and the NASS API takes its key as a
+    # query parameter. Keep request logs off so the key never reaches a log.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 # --- contracts ---------------------------------------------------------------

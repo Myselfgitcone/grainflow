@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -164,7 +165,10 @@ def load_batch(
         log.warning("%s: nothing valid to write, leaving table untouched", contract.table)
     elif replace_where:
         column, value = replace_where
-        table.overwrite(frame, overwrite_filter=EqualTo(column, value))
+        with warnings.catch_warnings():
+            # The first load of a slice has nothing to replace; that's expected.
+            warnings.filterwarnings("ignore", message="Delete operation did not match")
+            table.overwrite(frame, overwrite_filter=EqualTo(column, value))
     else:
         table.append(frame)
 
