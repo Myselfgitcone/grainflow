@@ -40,8 +40,8 @@ down: ## Stop the stack, keep data
 reset: ## Stop the stack and delete all data
 	$(COMPOSE) down -v
 
-backfill: ## Load price history, two days of weather and crop condition
-	$(CLI) grainflow produce price-history --period 2y
+backfill: ## Load 10y of daily prices, two days of weather and crop condition
+	$(CLI) grainflow produce price-history --period 10y
 	$(CLI) grainflow produce weather --once
 	$(CLI) grainflow load crops --commodity CORN
 	$(CLI) grainflow load crops --commodity SOYBEANS
