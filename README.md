@@ -69,7 +69,7 @@ You need Docker with ~6 GB of memory, plus [uv](https://docs.astral.sh/uv/) for 
 ```bash
 cp .env.example .env        # add a free NASS key + your email for the NWS user agent
 make up                     # builds images, creates tables + topics, starts everything
-make backfill               # 2y of daily prices, 2 days of weather, crop condition
+make backfill               # 10y of daily prices, 2 days of weather, crop condition
 make transform              # dbt build now instead of waiting for the 15-min schedule
 make query                  # weekly corn belt mart via Trino
 ```
@@ -101,30 +101,46 @@ First full run on a laptop (Docker on WSL2, 7 GB), October 2026, live public dat
 
 | Layer | What landed |
 | --- | --- |
-| Bronze | 4,000+ streamed 1-minute CBOT bars, 1,509 daily bars (2 years), 800+ NWS observations from 14 stations, 68,730 USDA crop condition rows (corn + soybeans since 2018) |
+| Bronze | Streamed 1-minute CBOT bars, 9,049 daily bars (10 years), 800+ NWS observations from 14 stations, 68,730 USDA crop condition rows (corn + soybeans since 2018) |
 | Quarantine | 0 rows: every record passed its contract |
-| Silver | `stg_price_bars` collapsed ~5,600 bronze rows to 3,576 unique bars. The duplicates came from producer restarts, which is the at-least-once case ADR 0003 plans for |
-| Gold | dbt on Trino: 53 models and tests, 0 failures. `mart_corn_belt_weekly` holds 105 weeks |
+| Silver | `stg_price_bars` keeps one row per bar no matter how often it was replayed. Producer restarts and a re-run backfill sent duplicates, which is the at-least-once case ADR 0003 plans for |
+| Gold | dbt on Trino: 56 models and tests, 0 failures. `mart_corn_belt_weekly` holds ~520 weeks |
 
-**Does a drop in crop ratings move next week's corn price?** Over the 52 weeks where
-ratings and prices overlap, averaged over the 18 Crop Progress states:
+### Does a drop in crop ratings move next week's corn price?
+
+257 growing-season weeks, 2018–2026, rating change averaged over the 18 Crop
+Progress states:
 
 | | Weeks | Avg. next-week corn return |
 | --- | --- | --- |
-| Good/excellent fell 1.5+ points | 10 | **+0.89%** |
-| Good/excellent rose 1.5+ points | 13 | **−0.45%** |
-| Correlation (rating change vs next-week return) | 52 | **−0.20** |
+| Good/excellent fell 1.5+ points | 56 | **+0.93%** |
+| Good/excellent rose 1.5+ points | 44 | **−0.79%** |
+| Correlation (rating change vs next-week return) | 257 | **−0.16** |
 
-The sign matches the economics: a worse crop means tighter supply and a higher price.
-It is not statistically significant, though (t ≈ −1.4, p ≈ 0.16). Two seasons is
-too little data, and much of the news is priced in before NASS publishes on
-Monday afternoon. Extending price history to every year that has crop data
-(back to 2018) is the obvious next step.
+The sign matches the economics (worse crop, tighter supply, higher price), and
+with nine seasons it is statistically significant: t ≈ −2.6, p ≈ 0.01. On the
+first run, with two seasons, the same correlation was −0.20 and not significant
+(p ≈ 0.16). More data turned a hint into evidence.
+
+What this does **not** show:
+
+- **It explains very little.** r² ≈ 0.03, so rating changes account for about 3% of
+  weekly price variance. Weather forecasts, exports and the dollar drive the rest.
+- **It is not a tradable signal as measured.** NASS releases ratings on Monday at
+  4pm ET, after CBOT closes, but "next week" here runs from Friday's close to the
+  following Friday. The Friday-to-Monday part happens before the report is public.
+  A clean test measures from Monday's close after the release. That is the next
+  model change.
 
 One modeling fix came out of checking the data. NASS rates corn in 41 states,
 including CT, RI and VT. An equal-weight average let those states dilute Iowa
 and Illinois, so the mart now uses only the 18 states in USDA's national Crop
 Progress report (`ref_crop_progress_states`), and a test caps the count at 18.
+
+The 10-year backfill also found a real streaming bug: unsorted micro-batches
+spanning ~2,500 daily partitions made Iceberg's fanout writer hold thousands of
+open Parquet files, and Spark ran out of heap in a restart loop. Sorting within
+partitions switched Iceberg to its clustered writer, and memory stayed flat.
 
 ## Design decisions
 
