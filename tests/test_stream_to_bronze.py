@@ -86,3 +86,16 @@ def test_optional_nulls_are_fine(spark, contracts, weather_observation):
     good, bad = job.split(job.decode(kafka_rows(spark, [weather_observation]), contract), contract)
 
     assert (good.count(), bad.count()) == (1, 0)
+
+
+def test_rows_are_clustered_by_partition_before_writing(spark, contracts, price_bar):
+    contract = contracts["price_bar"]
+    days = ["2019-03-04", "2017-01-03", "2024-06-10", "2017-01-03", "2019-03-04"]
+    bars = [{**price_bar, "bar_interval": "1d", "bar_start": f"{d}T05:00:00+00:00"} for d in days]
+    good, _ = job.split(job.decode(kafka_rows(spark, bars), contract), contract)
+
+    ordered = job.clustered_by_partition(good.coalesce(1), contract)
+
+    starts = [r.bar_start for r in ordered.collect()]
+    assert starts == sorted(starts)
+    assert job.CLUSTERED_WRITE["fanout-enabled"] == "false"
