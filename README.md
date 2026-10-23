@@ -60,7 +60,7 @@ flowchart LR
 | Storage | Iceberg v2, SeaweedFS (S3 API), Postgres | Day-partitioned bronze tables; one catalog shared by Spark, Trino and pyiceberg |
 | Transform | dbt on Trino | Incremental dedupe in silver; gold facts with enforced model contracts |
 | Orchestration | Dagster | Asset lineage from Kafka to gold, contract-driven freshness checks, nightly compaction |
-| CI | GitHub Actions | Lint, 41 unit tests incl. PySpark, 57 dbt nodes on DuckDB, contract compatibility gate |
+| CI | GitHub Actions | Lint, 44 unit tests incl. PySpark, 60 dbt nodes on DuckDB, contract compatibility gate |
 
 ## Quickstart
 
@@ -94,6 +94,37 @@ Without Docker, everything except the live stack runs locally:
 make setup
 make check                  # lint, contracts, unit tests, dbt build on DuckDB fixtures
 ```
+
+## Results from a real run
+
+First full run on a laptop (Docker on WSL2, 7 GB), October 2026, live public data.
+
+| Layer | What landed |
+| --- | --- |
+| Bronze | 4,000+ streamed 1-minute CBOT bars, 1,509 daily bars (2 years), 800+ NWS observations from 14 stations, 68,730 USDA crop condition rows (corn + soybeans since 2018) |
+| Quarantine | 0 rows: every record passed its contract |
+| Silver | `stg_price_bars` collapsed ~5,600 bronze rows to 3,576 unique bars. The duplicates came from producer restarts, which is the at-least-once case ADR 0003 plans for |
+| Gold | dbt on Trino: 53 models and tests, 0 failures. `mart_corn_belt_weekly` holds 105 weeks |
+
+**Does a drop in crop ratings move next week's corn price?** Over the 52 weeks where
+ratings and prices overlap, averaged over the 18 Crop Progress states:
+
+| | Weeks | Avg. next-week corn return |
+| --- | --- | --- |
+| Good/excellent fell 1.5+ points | 10 | **+0.89%** |
+| Good/excellent rose 1.5+ points | 13 | **−0.45%** |
+| Correlation (rating change vs next-week return) | 52 | **−0.20** |
+
+The sign matches the economics: a worse crop means tighter supply and a higher price.
+It is not statistically significant, though (t ≈ −1.4, p ≈ 0.16). Two seasons is
+too little data, and much of the news is priced in before NASS publishes on
+Monday afternoon. Extending price history to every year that has crop data
+(back to 2018) is the obvious next step.
+
+One modeling fix came out of checking the data. NASS rates corn in 41 states,
+including CT, RI and VT. An equal-weight average let those states dilute Iowa
+and Illinois, so the mart now uses only the 18 states in USDA's national Crop
+Progress report (`ref_crop_progress_states`), and a test caps the count at 18.
 
 ## Design decisions
 
