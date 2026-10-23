@@ -16,7 +16,7 @@ grainflow:
     # CI and laptop checks: same models on DuckDB over synthetic fixtures.
     ci:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', 'target/grainflow_ci.duckdb') }}"
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'grainflow_ci.duckdb') }}"
       schema: silver
       threads: 4
       settings:

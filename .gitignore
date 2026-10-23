@@ -16,3 +16,5 @@ infra/dagster/*
 spark-warehouse/
 metastore_db/
 derby.log
+*.duckdb
+*.duckdb.wal
