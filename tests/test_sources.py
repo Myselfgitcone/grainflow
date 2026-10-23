@@ -136,3 +136,15 @@ def test_parse_condition_rows(contracts):
     assert validator.errors(records[0]) == []
     # 1,250 survives parsing but the contract catches it before it lands.
     assert any("pct" in e for e in validator.errors(records[2]))
+
+
+def test_cli_keeps_request_urls_with_api_keys_out_of_logs():
+    import logging
+
+    from typer.testing import CliRunner
+
+    from grainflow.cli import app
+
+    CliRunner().invoke(app, ["contracts", "check"])
+
+    assert logging.getLogger("httpx").getEffectiveLevel() >= logging.WARNING
