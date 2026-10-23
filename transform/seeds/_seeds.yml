@@ -7,6 +7,16 @@ seeds:
       - name: symbol
         data_tests: [unique, not_null]
 
+  - name: ref_crop_progress_states
+    description: >
+      The 18 states per crop that USDA's national Crop Progress report rates.
+      NASS also publishes condition for minor states (CT, RI, VT...); averaging
+      those in with equal weight would drown out the states that set prices.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [commodity, state_alpha]
+
   # Fixtures mirror the bronze Iceberg tables column for column.
   - name: price_bars
     config:
