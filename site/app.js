@@ -6,6 +6,17 @@ const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pct = (v, digits = 2) =>
   v === null || v === undefined ? "–" : `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toFixed(digits)}%`;
 
+// "Oct 24, 4:12 PM CDT" in the reader's own time zone.
+const stamp = (iso) =>
+  new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+
+// "Oct 23" for a calendar date; parsed as local so it doesn't shift a day west of UTC.
+const day = (iso) => {
+  if (!iso) return "unknown";
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const $ = (id) => document.getElementById(id);
 
@@ -76,10 +87,9 @@ function renderSummary(summary) {
   if (s.correlation !== null) $("r2").textContent = Math.round(s.correlation ** 2 * 100);
 
   const f = summary.freshness;
-  const built = new Date(summary.generated_at);
   $("freshness").textContent =
-    `Rebuilt ${built.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}. ` +
-    `Prices through ${f.latest_price_date}, USDA week ending ${f.latest_crop_week}.`;
+    `Last updated ${stamp(summary.generated_at)} · prices through ${day(f.latest_price_date)} · ` +
+    `USDA week ending ${day(f.latest_crop_week)}`;
 
   const rows = Object.entries(summary.volumes)
     .filter(([name]) => name !== "quarantine")
