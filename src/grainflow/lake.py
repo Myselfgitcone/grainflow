@@ -11,7 +11,7 @@ import logging
 import warnings
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 import pyarrow as pa
@@ -32,7 +32,7 @@ from pyiceberg.types import (
     TimestamptzType,
 )
 
-from grainflow.contracts import Contract
+from grainflow.contracts import Contract, coerce
 from grainflow.settings import Settings, get_settings
 
 log = logging.getLogger(__name__)
@@ -182,10 +182,9 @@ def load_batch(
 def _to_arrow(
     contract: Contract, schema: Schema, records: list[dict[str, Any]], ingested_at: datetime
 ) -> pa.Table:
-    converters = {f.name: _CONVERTERS.get(f.type, _identity) for f in contract.fields}
     rows = []
     for record in records:
-        row = {name: convert(record.get(name)) for name, convert in converters.items()}
+        row = {f.name: coerce(record.get(f.name), f.type) for f in contract.fields}
         row["_ingested_at"] = ingested_at
         rows.append(row)
     return pa.Table.from_pylist(rows, schema=schema.as_arrow())
@@ -205,22 +204,3 @@ def _quarantine(
     ]
     table = lake.load_table(QUARANTINE_TABLE)
     table.append(pa.Table.from_pylist(rows, schema=table.schema().as_arrow()))
-
-
-def _identity(value: Any) -> Any:
-    return value
-
-
-def _timestamp(value: Any) -> datetime | None:
-    if value is None or isinstance(value, datetime):
-        return value
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-
-
-def _date(value: Any) -> date | None:
-    if value is None or isinstance(value, date):
-        return value
-    return date.fromisoformat(str(value))
-
-
-_CONVERTERS = {"timestamp": _timestamp, "date": _date}

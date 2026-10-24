@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import date, datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Any
@@ -265,3 +266,14 @@ def _json_schema(contract: Contract) -> dict[str, Any]:
         "required": contract.required_fields,
         "additionalProperties": False,
     }
+
+
+def coerce(value: Any, field_type: str) -> Any:
+    """Turn a JSON-ish value into the Python type a table column expects."""
+    if value is None:
+        return None
+    if field_type == "timestamp" and not isinstance(value, datetime):
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if field_type == "date" and not isinstance(value, date):
+        return date.fromisoformat(str(value))
+    return value
