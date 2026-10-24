@@ -296,5 +296,19 @@ def publish_export(
     )
 
 
+@publish_app.command("lake")
+def publish_lake(
+    out: Path = typer.Option(Path("site/dist"), help="Folder the static site is served from."),
+    db: Path = typer.Option(PUBLISH_DB),
+    dbt_manifest: Path = typer.Option(Path("transform/target-publish/manifest.json")),
+) -> None:
+    """Write gold tables as Parquet with a manifest, for the data agent to query."""
+    from grainflow.publish import export_lake
+
+    manifest = export_lake(db, out, dbt_manifest)
+    total = sum(t["rows"] for t in manifest["tables"])
+    typer.echo(f"exported {len(manifest['tables'])} tables, {total:,} rows to {out}/data/lake")
+
+
 if __name__ == "__main__":
     app()
