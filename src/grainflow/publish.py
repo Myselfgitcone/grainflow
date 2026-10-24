@@ -160,7 +160,11 @@ def load_sources(db_path: Path, settings: Settings, price_period: str = "10y") -
 
 
 def export_site_data(
-    db_path: Path, out_dir: Path, run_results: Path | None = None, video_url: str = ""
+    db_path: Path,
+    out_dir: Path,
+    run_results: Path | None = None,
+    video_url: str = "",
+    portfolio_url: str = "",
 ) -> dict[str, Any]:
     """Write the JSON the dashboard reads. Returns the summary for logging."""
     con = connect(db_path)
@@ -241,6 +245,7 @@ def export_site_data(
         "volumes": {v["dataset"]: v["rows"] for v in volumes},
         "dbt": _dbt_stats(run_results) if run_results else None,
         "video_url": video_url or None,
+        "portfolio_url": portfolio_url or None,
     }
     _write(data_dir / "summary.json", summary)
     _write(data_dir / "weekly.json", weekly)

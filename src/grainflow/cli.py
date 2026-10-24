@@ -277,11 +277,14 @@ def publish_export(
     db: Path = typer.Option(PUBLISH_DB),
     run_results: Path = typer.Option(Path("transform/target-publish/run_results.json")),
     video_url: str = typer.Option("", envvar="GRAINFLOW_VIDEO_URL"),
+    portfolio_url: str = typer.Option(
+        "", envvar="GRAINFLOW_PORTFOLIO_URL", help="Adds an 'All projects' link when set."
+    ),
 ) -> None:
     """Write the gold results and run stats as JSON for the dashboard."""
     from grainflow.publish import export_site_data
 
-    summary = export_site_data(db, out, run_results, video_url)
+    summary = export_site_data(db, out, run_results, video_url, portfolio_url)
     signal = summary["signal"]
     if not signal["weeks"]:
         # Failing the build keeps the last good deploy live instead of an empty page.
