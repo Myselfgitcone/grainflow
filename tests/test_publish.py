@@ -88,11 +88,18 @@ def test_export_writes_the_dashboard_files(tmp_path, con):
         )
     )
 
-    summary = publish.export_site_data(tmp_path / "publish.duckdb", tmp_path / "site", run_results)
+    summary = publish.export_site_data(
+        tmp_path / "publish.duckdb",
+        tmp_path / "site",
+        run_results,
+        portfolio_url="https://example.com",
+    )
 
     assert summary["signal"]["weeks"] == 4
     assert summary["signal"]["fell_weeks"] == 2
     assert summary["dbt"] == {"models": 1, "tests": 2, "tests_passed": 1}
+    assert summary["portfolio_url"] == "https://example.com"
+    assert summary["video_url"] is None
     states = json.loads((tmp_path / "site" / "data" / "states.json").read_text())
     assert states[0]["state_alpha"] == "IA"
     weekly = json.loads((tmp_path / "site" / "data" / "weekly.json").read_text())
