@@ -283,6 +283,10 @@ def publish_export(
 
     summary = export_site_data(db, out, run_results, video_url)
     signal = summary["signal"]
+    if not signal["weeks"]:
+        # Failing the build keeps the last good deploy live instead of an empty page.
+        typer.echo("no weeks with both ratings and returns; refusing to publish", err=True)
+        raise typer.Exit(1)
     typer.echo(
         f"exported {signal['weeks']} weeks, r={signal['correlation']:.3f}, "
         f"data through {summary['freshness']['latest_price_date']}"
