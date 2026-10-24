@@ -104,3 +104,43 @@ def test_export_writes_the_dashboard_files(tmp_path, con):
     assert states[0]["state_alpha"] == "IA"
     weekly = json.loads((tmp_path / "site" / "data" / "weekly.json").read_text())
     assert weekly[0]["week_start"] == "2025-06-02"
+
+
+def test_lake_export_writes_parquet_with_dbt_docs(tmp_path, con):
+    import duckdb
+
+    con.execute("create schema gold; create schema silver")
+    con.execute(
+        "create table gold.fct_price_daily as "
+        "select 'ZC=F' as symbol, date '2025-06-27' as trade_date, 450.5 as close_price"
+    )
+    con.execute("create table silver.ref_symbols as select 'ZC=F' as symbol, 'corn' as commodity")
+    con.execute("create table silver.stg_hidden as select 1 as x")
+    con.close()
+    dbt_manifest = tmp_path / "manifest.json"
+    dbt_manifest.write_text(
+        json.dumps(
+            {
+                "nodes": {
+                    "model.grainflow.fct_price_daily": {
+                        "name": "fct_price_daily",
+                        "resource_type": "model",
+                        "description": "Daily OHLCV per contract.",
+                        "columns": {"close_price": {"description": "Settle price, cents/bu."}},
+                    }
+                }
+            }
+        )
+    )
+
+    manifest = publish.export_lake(tmp_path / "publish.duckdb", tmp_path / "site", dbt_manifest)
+
+    assert [t["name"] for t in manifest["tables"]] == ["fct_price_daily", "ref_symbols"]
+    price = manifest["tables"][0]
+    assert price["rows"] == 1
+    assert price["description"] == "Daily OHLCV per contract."
+    close = next(c for c in price["columns"] if c["name"] == "close_price")
+    assert close["description"] == "Settle price, cents/bu."
+    lake = tmp_path / "site" / "data" / "lake"
+    assert duckdb.sql(f"select close_price from '{lake / price['file']}'").fetchall() == [(450.5,)]
+    assert json.loads((lake / "manifest.json").read_text())["tables"][1]["name"] == "ref_symbols"

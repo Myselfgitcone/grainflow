@@ -21,6 +21,7 @@ uv run grainflow publish load --db "$GRAINFLOW_PUBLISH_DB"
 uv run dbt build --project-dir transform --profiles-dir transform \
   --target publish --target-path target-publish
 uv run grainflow publish export --db "$GRAINFLOW_PUBLISH_DB" --out site/dist
+uv run grainflow publish lake --db "$GRAINFLOW_PUBLISH_DB" --out site/dist
 
 cp site/index.html site/app.js site/dist/
 mkdir -p site/dist/images

@@ -253,6 +253,92 @@ def export_site_data(
     return summary
 
 
+# Tables the data agent may read: every gold model plus the reference seeds.
+LAKE_SCHEMAS = ("gold",)
+LAKE_EXTRA_TABLES = ("silver.ref_crop_progress_states", "silver.ref_symbols")
+
+
+def export_lake(db_path: Path, out_dir: Path, dbt_manifest: Path | None = None) -> dict[str, Any]:
+    """Write agent-readable tables as Parquet plus a manifest describing them.
+
+    The manifest carries row counts, column types and the descriptions written
+    in dbt, so a consumer can learn the tables without reading this repo.
+    """
+    con = connect(db_path)
+    lake_dir = out_dir / "data" / "lake"
+    lake_dir.mkdir(parents=True, exist_ok=True)
+    docs = _dbt_docs(dbt_manifest) if dbt_manifest else {}
+
+    names = [
+        f"{schema}.{table}"
+        for schema, table in con.execute(
+            "select table_schema, table_name from information_schema.tables "
+            f"where table_schema in ({', '.join('?' for _ in LAKE_SCHEMAS)}) order by table_name",
+            list(LAKE_SCHEMAS),
+        ).fetchall()
+    ]
+    names += [t for t in LAKE_EXTRA_TABLES if _table_exists(con, t)]
+
+    tables = []
+    for name in names:
+        table = name.split(".")[1]
+        path = lake_dir / f"{table}.parquet"
+        con.execute(f"COPY {name} TO '{path}' (FORMAT parquet, COMPRESSION zstd)")
+        rows = con.execute(f"select count(*) from {name}").fetchone()[0]
+        doc = docs.get(table, {})
+        columns = [
+            {"name": col, "type": kind, "description": doc.get("columns", {}).get(col, "")}
+            for col, kind in con.execute(
+                "select column_name, data_type from information_schema.columns "
+                "where table_schema = ? and table_name = ? order by ordinal_position",
+                name.split("."),
+            ).fetchall()
+        ]
+        tables.append(
+            {
+                "name": table,
+                "file": f"{table}.parquet",
+                "rows": rows,
+                "description": doc.get("description", ""),
+                "columns": columns,
+            }
+        )
+    con.close()
+
+    manifest = {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "tables": tables,
+    }
+    _write(lake_dir / "manifest.json", manifest)
+    return manifest
+
+
+def _table_exists(con, name: str) -> bool:
+    schema, table = name.split(".")
+    return bool(
+        con.execute(
+            "select count(*) from information_schema.tables "
+            "where table_schema = ? and table_name = ?",
+            [schema, table],
+        ).fetchone()[0]
+    )
+
+
+def _dbt_docs(manifest_path: Path) -> dict[str, dict[str, Any]]:
+    """Model and seed descriptions from dbt's manifest.json, keyed by name."""
+    if not manifest_path.exists():
+        return {}
+    nodes = json.loads(manifest_path.read_text())["nodes"].values()
+    return {
+        node["name"]: {
+            "description": node.get("description", ""),
+            "columns": {c: v.get("description", "") for c, v in node.get("columns", {}).items()},
+        }
+        for node in nodes
+        if node.get("resource_type") in ("model", "seed")
+    }
+
+
 def _significance(r: float | None, n: int) -> dict[str, float | None]:
     """t statistic and a normal-approximation p-value for a Pearson correlation."""
     if r is None or n < 3 or abs(r) >= 1:
