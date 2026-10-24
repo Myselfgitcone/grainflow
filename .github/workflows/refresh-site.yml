@@ -1,22 +1,46 @@
 name: refresh-site
 
-# Rebuild the public dashboard every morning so it shows the latest prices and
-# USDA ratings. Vercel does the build; this just calls its deploy hook.
+# Rebuild the public dashboard (and the lake Silo reads) at 3am, 9am, 3pm and
+# 9pm Chicago time. Vercel does the build; this just calls its deploy hook.
+#
+# GitHub cron only speaks UTC and Chicago moves an hour at daylight saving, so
+# the schedule wakes at both candidate UTC hours and the first step keeps only
+# the run that falls on a target hour in Chicago.
 on:
   schedule:
-    - cron: "17 12 * * *"  # ~7am Chicago
+    - cron: "0 2,3,8,9,14,15,20,21 * * *"
+    # Mondays 4:15pm CT, about an hour after USDA publishes Crop Progress.
+    - cron: "15 21,22 * * 1"
   workflow_dispatch:
 
 jobs:
   redeploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Check the Chicago clock
+        id: gate
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          hour=$(TZ=America/Chicago date +%H)
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            ok=1
+          elif [ "$SCHEDULE" = "15 21,22 * * 1" ]; then
+            [ "$hour" = "16" ] && ok=1
+          else
+            case "$hour" in 03|09|15|21) ok=1 ;; esac
+          fi
+          echo "Chicago time $(TZ=America/Chicago date '+%a %H:%M %Z'): ${ok:+running}${ok:-skipping, not a target hour}"
+          echo "run=${ok:-0}" >> "$GITHUB_OUTPUT"
+
       - name: Trigger a fresh Vercel build
+        if: steps.gate.outputs.run == '1'
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "VERCEL_DEPLOY_HOOK secret is not set; nothing to do."
+            echo "::warning title=No deploy hook::Set the VERCEL_DEPLOY_HOOK secret or the site never refreshes."
             exit 0
           fi
           curl -fsS -X POST "$HOOK"
+          echo "Requested a fresh build at $(date -u +%FT%TZ)."
