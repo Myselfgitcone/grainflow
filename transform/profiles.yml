@@ -21,3 +21,12 @@ grainflow:
       threads: 4
       settings:
         TimeZone: UTC
+
+    # Public dashboard build: real data, same models, no servers (site/build.sh).
+    publish:
+      type: duckdb
+      path: "{{ env_var('GRAINFLOW_PUBLISH_DB', 'grainflow_publish.duckdb') }}"
+      schema: silver
+      threads: 4
+      settings:
+        TimeZone: UTC

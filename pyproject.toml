@@ -31,6 +31,13 @@ orchestration = [
     "trino>=0.330",
 ]
 
+# The public dashboard build: the same dbt models on DuckDB (site/build.sh).
+publish = [
+    "dbt-core>=1.9",
+    "dbt-duckdb>=1.9",
+    "duckdb>=1.1",
+]
+
 [project.scripts]
 grainflow = "grainflow.cli:app"
 
@@ -55,6 +62,9 @@ target-version = "py310"  # the Spark image ships Python 3.10
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["typer.Option"]  # typer declares CLI options as defaults
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

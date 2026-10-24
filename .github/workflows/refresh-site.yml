@@ -1,0 +1,22 @@
+name: refresh-site
+
+# Rebuild the public dashboard every morning so it shows the latest prices and
+# USDA ratings. Vercel does the build; this just calls its deploy hook.
+on:
+  schedule:
+    - cron: "17 12 * * *"  # ~7am Chicago
+  workflow_dispatch:
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger a fresh Vercel build
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK secret is not set; nothing to do."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK"

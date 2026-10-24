@@ -250,5 +250,44 @@ def load_crops(
     typer.echo(f"{commodity}: wrote {result.written}, quarantined {result.rejected}")
 
 
+# --- publish -----------------------------------------------------------------
+
+publish_app = typer.Typer(no_args_is_help=True, help="Build the public dashboard data.")
+app.add_typer(publish_app, name="publish")
+
+PUBLISH_DB = Path("transform/grainflow_publish.duckdb")
+
+
+@publish_app.command("load")
+def publish_load(
+    db: Path = typer.Option(PUBLISH_DB, help="DuckDB file the dbt publish target reads."),
+    period: str = typer.Option("10y", help="How much daily price history to load."),
+) -> None:
+    """Fetch every source into DuckDB tables shaped like bronze."""
+    from grainflow.publish import load_sources
+
+    db.unlink(missing_ok=True)
+    stats = load_sources(db, get_settings(), price_period=period)
+    typer.echo(json.dumps(stats, indent=2))
+
+
+@publish_app.command("export")
+def publish_export(
+    out: Path = typer.Option(Path("site/dist"), help="Folder the static site is served from."),
+    db: Path = typer.Option(PUBLISH_DB),
+    run_results: Path = typer.Option(Path("transform/target-publish/run_results.json")),
+    video_url: str = typer.Option("", envvar="GRAINFLOW_VIDEO_URL"),
+) -> None:
+    """Write the gold results and run stats as JSON for the dashboard."""
+    from grainflow.publish import export_site_data
+
+    summary = export_site_data(db, out, run_results, video_url)
+    signal = summary["signal"]
+    typer.echo(
+        f"exported {signal['weeks']} weeks, r={signal['correlation']:.3f}, "
+        f"data through {summary['freshness']['latest_price_date']}"
+    )
+
+
 if __name__ == "__main__":
     app()

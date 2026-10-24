@@ -945,6 +945,12 @@ orchestration = [
     { name = "sqlalchemy" },
     { name = "trino" },
 ]
+publish = [
+    { name = "dbt-core" },
+    { name = "dbt-duckdb" },
+    { name = "duckdb", version = "1.5.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "duckdb", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -962,7 +968,10 @@ requires-dist = [
     { name = "dagster-postgres", marker = "extra == 'orchestration'", specifier = ">=0.26" },
     { name = "dagster-webserver", marker = "extra == 'orchestration'", specifier = ">=1.10" },
     { name = "dbt-core", marker = "extra == 'orchestration'", specifier = ">=1.9" },
+    { name = "dbt-core", marker = "extra == 'publish'", specifier = ">=1.9" },
+    { name = "dbt-duckdb", marker = "extra == 'publish'", specifier = ">=1.9" },
     { name = "dbt-trino", marker = "extra == 'orchestration'", specifier = ">=1.9" },
+    { name = "duckdb", marker = "extra == 'publish'", specifier = ">=1.1" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "jsonschema", extras = ["format-nongpl"], specifier = ">=4.23" },
     { name = "pandas", specifier = ">=2.2" },
@@ -975,7 +984,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.12" },
     { name = "yfinance", specifier = ">=0.2.50" },
 ]
-provides-extras = ["orchestration"]
+provides-extras = ["orchestration", "publish"]
 
 [package.metadata.requires-dev]
 dev = [

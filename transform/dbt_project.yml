@@ -27,10 +27,10 @@ seeds:
     reference:
       +schema: silver
       +meta: {dagster: {group: reference}}
-    # Synthetic bronze tables for the DuckDB CI target only (see scripts/make_fixtures.py).
+    # Synthetic bronze tables for the CI target only (see scripts/make_fixtures.py).
     fixtures:
       +schema: bronze
-      +enabled: "{{ target.type == 'duckdb' }}"
+      +enabled: "{{ target.name == 'ci' }}"
 
 flags:
   send_anonymous_usage_stats: false
